@@ -1,7 +1,10 @@
 export async function scrapeEAN(ean: string) {
   try {
-    // Calling the FastAPI server running locally
-    const res = await fetch(`http://127.0.0.1:8000/scrape/${ean}`);
+    // Calling the FastAPI server
+    // It will use the environment variable on Vercel, or localhost locally
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+    
+    const res = await fetch(`${baseUrl}/scrape/${ean}`);
     if (!res.ok) {
       throw new Error(`Scraper API returned ${res.status}`);
     }
