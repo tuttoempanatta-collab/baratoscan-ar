@@ -117,7 +117,7 @@ export default function Scanner({ onScan }: ScannerProps) {
                   value={manualValue}
                   onChange={(e) => setManualValue(e.target.value)}
                   placeholder={mode === 'ean' ? 'Ej: 7790580567903' : 'Ej: Banana, Leche, Yerba...'}
-                  className="w-full text-xl py-4 px-6 border-2 border-slate-200 rounded-2xl focus:outline-none focus:border-indigo-500 text-center tracking-wide shadow-inner transition-colors"
+                  className="w-full text-xl py-4 px-6 border-2 border-slate-200 rounded-2xl focus:outline-none focus:border-indigo-500 text-center tracking-wide shadow-inner transition-colors text-slate-900 font-bold"
                   autoFocus
                 />
               </div>
