@@ -7,8 +7,13 @@ class DiaScraper(BaseScraper):
     base_url = "https://diaonline.supermercadosdia.com.ar"
 
     async def _perform_scrape(self, client: httpx.AsyncClient, ean: str) -> Optional[Dict[str, Any]]:
-        # VTEX API is standard across many Argentine supermarkets
-        api_url = f"{self.base_url}/api/catalog_system/pub/products/search/?fq=alternateIds_Ean:{ean}"
+        # If it's a number (EAN), use exact match. If it's text, use broad search.
+        if ean.isdigit() and len(ean) >= 8:
+            api_url = f"{self.base_url}/api/catalog_system/pub/products/search/?fq=alternateIds_Ean:{ean}"
+        else:
+            # Handle spaces in text query
+            query = ean.replace(' ', '%20')
+            api_url = f"{self.base_url}/api/catalog_system/pub/products/search/{query}"
         
         response = await client.get(api_url)
         response.raise_for_status()
