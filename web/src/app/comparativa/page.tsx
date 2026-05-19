@@ -1598,13 +1598,21 @@ export default function ComparativaPage() {
                                     const commerceProducts = commerces.find(c => c.name === cName)?.data || [];
                                     const searchVal = (duelStoreSearch[cName] || '').toLowerCase().trim();
                                     
-                                    const filteredStoreProducts = searchVal
-                                      ? commerceProducts.filter(p => 
-                                          (p.nombre || '').toLowerCase().includes(searchVal) || 
-                                          (p.ean || '').includes(searchVal) ||
-                                          (p.marca || '').toLowerCase().includes(searchVal)
-                                        )
-                                      : commerceProducts.slice(0, 100);
+                                    let filteredStoreProducts = commerceProducts.slice(0, 100);
+                                    if (searchVal) {
+                                      const terms = searchVal.split(/[\s+]+/).filter(t => t.length > 0);
+                                      if (terms.length > 0) {
+                                        const firstTerm = terms[0];
+                                        filteredStoreProducts = commerceProducts.filter(p => {
+                                          const pName = (p.nombre || '').toLowerCase().trim();
+                                          const pEan = (p.ean || '').toLowerCase();
+                                          const pMarca = (p.marca || '').toLowerCase();
+                                          return pName.startsWith(firstTerm) && terms.every(term => 
+                                            pName.includes(term) || pEan.includes(term) || pMarca.includes(term)
+                                          );
+                                        });
+                                      }
+                                    }
 
                                     return (
                                       <div key={cName} className="bg-white p-3 rounded-2xl border border-slate-200 shadow-sm flex flex-col gap-2">
