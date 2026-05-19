@@ -23,7 +23,88 @@ interface CommerceData {
   data: CsvDataRow[];
 }
 
-let nextId = 1;
+const DB_NAME = 'BaratoScanDB';
+const DB_VERSION = 1;
+const STORE_NAME = 'commercesStore';
+
+function getDB(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    if (typeof window === 'undefined') {
+      reject(new Error('IndexedDB is not available on server-side'));
+      return;
+    }
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve(request.result);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+      }
+    };
+  });
+}
+
+async function saveCommerces(commerces: CommerceData[]): Promise<void> {
+  if (typeof window === 'undefined') return;
+  const db = await getDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(STORE_NAME, 'readwrite');
+    const store = transaction.objectStore(STORE_NAME);
+    const clearReq = store.clear();
+    
+    clearReq.onsuccess = () => {
+      if (commerces.length === 0) {
+        resolve();
+        return;
+      }
+      let completed = 0;
+      let hasError = false;
+      for (const commerce of commerces) {
+        const req = store.add(commerce);
+        req.onerror = () => {
+          if (!hasError) {
+            hasError = true;
+            reject(req.error);
+          }
+        };
+        req.onsuccess = () => {
+          completed++;
+          if (completed === commerces.length && !hasError) {
+            resolve();
+          }
+        };
+      }
+    };
+    clearReq.onerror = () => reject(clearReq.error);
+  });
+}
+
+async function loadCommerces(): Promise<CommerceData[]> {
+  if (typeof window === 'undefined') return [];
+  const db = await getDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(STORE_NAME, 'readonly');
+    const store = transaction.objectStore(STORE_NAME);
+    const request = store.getAll();
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve(request.result || []);
+  });
+}
+
+async function clearCommerces(): Promise<void> {
+  if (typeof window === 'undefined') return;
+  const db = await getDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(STORE_NAME, 'readwrite');
+    const store = transaction.objectStore(STORE_NAME);
+    const request = store.clear();
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve();
+  });
+}
+
+let nextId = typeof window !== 'undefined' ? Date.now() : 1;
 
 interface ParsedUnit {
   quantity: number;
@@ -93,6 +174,23 @@ export default function ComparativaPage() {
       setDuelCommerces([commerces[0].name, commerces[1].name]);
     }
   }, [commerces, duelCommerces]);
+
+  // Cargar comercios de IndexedDB al montar el componente
+  React.useEffect(() => {
+    loadCommerces()
+      .then(stored => {
+        if (stored && stored.length > 0) {
+          setCommerces(stored);
+        }
+      })
+      .catch(err => console.error("Error al cargar comercios de IndexedDB:", err));
+  }, []);
+
+  // Guardar comercios en IndexedDB cuando cambia el estado
+  React.useEffect(() => {
+    saveCommerces(commerces)
+      .catch(err => console.error("Error al guardar comercios en IndexedDB:", err));
+  }, [commerces]);
 
 
 
@@ -309,6 +407,13 @@ export default function ComparativaPage() {
 
   const removeCommerce = (id: string) => {
     setCommerces(commerces.filter(c => c.id !== id));
+  };
+
+  const clearAllCommerces = async () => {
+    if (window.confirm('¿Estás seguro de que deseas eliminar TODOS los comercios y limpiar la base de datos local? Esta acción no se puede deshacer.')) {
+      setCommerces([]);
+      await clearCommerces();
+    }
   };
 
   // Group products — memoized so it only recomputes when commerces data changes
@@ -964,22 +1069,35 @@ export default function ComparativaPage() {
 
         {/* Active Commerces */}
         {commerces.length > 0 && (
-          <section className="flex flex-wrap gap-4">
-            {commerces.map((c) => (
-              <div key={c.id} className="bg-white px-4 py-2 rounded-full shadow-sm border border-slate-200 flex items-center gap-3">
-                <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                <span className="font-bold text-slate-700">{c.name}</span>
-                <span className="text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">{c.data.length} items</span>
-                <button 
-                  onClick={() => removeCommerce(c.id)}
-                  className="text-slate-400 hover:text-red-500 ml-2 transition-colors"
-                  title="Eliminar"
-                >
-                  <Trash2 size={16} />
-                </button>
-              </div>
-            ))}
-          </section>
+          <div className="space-y-3">
+            <div className="flex justify-between items-center px-1">
+              <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Comercios Cargados</h3>
+              <button
+                onClick={clearAllCommerces}
+                className="flex items-center gap-1.5 text-xs font-bold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100/70 border border-rose-200 px-3 py-1.5 rounded-xl transition-all shadow-sm"
+                title="Eliminar todos los comercios y limpiar base de datos local"
+              >
+                <Trash2 size={14} />
+                Limpieza Total
+              </button>
+            </div>
+            <section className="flex flex-wrap gap-4">
+              {commerces.map((c) => (
+                <div key={c.id} className="bg-white px-4 py-2 rounded-full shadow-sm border border-slate-200 flex items-center gap-3">
+                  <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                  <span className="font-bold text-slate-700">{c.name}</span>
+                  <span className="text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">{c.data.length} items</span>
+                  <button 
+                    onClick={() => removeCommerce(c.id)}
+                    className="text-slate-400 hover:text-red-500 ml-2 transition-colors"
+                    title="Eliminar"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              ))}
+            </section>
+          </div>
         )}
 
         {/* Table Section */}
