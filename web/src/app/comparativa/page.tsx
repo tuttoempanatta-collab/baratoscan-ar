@@ -498,7 +498,8 @@ export default function ComparativaPage() {
       result = parsedPropias.filter(p => 
         p.nombre.toLowerCase().includes(term) || 
         (p.familia?.toLowerCase() || '').includes(term) ||
-        (p.marca?.toLowerCase() || '').includes(term)
+        (p.marca?.toLowerCase() || '').includes(term) ||
+        (p.ean?.toLowerCase() || '').includes(term)
       );
     }
 
@@ -1784,7 +1785,7 @@ export default function ComparativaPage() {
                       <div className="flex-1 relative">
                         <input
                           type="text"
-                          placeholder="Ingresá un término para comparar marcas propias (ej: cola, fideos, leche)..."
+                          placeholder="Ingresá un término, marca o EAN para comparar marcas propias (ej: gaseosa, fideo, leche)..."
                           className="w-full pl-4 pr-10 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 text-slate-950 bg-white"
                           value={marcasPropiasSearch}
                           onChange={e => setMarcasPropiasSearch(e.target.value)}
@@ -1816,7 +1817,7 @@ export default function ComparativaPage() {
                     {/* Sugerencias de búsqueda rápida */}
                     <div className="flex flex-wrap gap-2 mb-6 items-center">
                       <span className="text-xs text-slate-400 font-medium">Búsquedas rápidas:</span>
-                      {['Cola', 'Leche', 'Fideos', 'Azúcar', 'Harina', 'Aceite', 'Arroz', 'Puré', 'Galletitas', 'Jabón'].map(term => (
+                      {['Gaseosa', 'Leche', 'Fideo', 'Azúcar', 'Harina', 'Aceite', 'Arroz', 'Puré', 'Galletita', 'Jabón'].map(term => (
                         <button
                           key={term}
                           onClick={() => setMarcasPropiasSearch(term)}
@@ -1837,7 +1838,7 @@ export default function ComparativaPage() {
                         <h3 className="font-bold text-slate-700 mb-1">Duelo de Marcas Propias</h3>
                         <p className="text-xs text-slate-500 max-w-md mx-auto leading-relaxed">
                           Las marcas propias tienen códigos de barras y descripciones diferentes. 
-                          Ingresá un término de búsqueda (como <strong>"cola"</strong>) arriba o usá las sugerencias rápidas para normalizar sus precios y compararlos de forma justa.
+                          Ingresá un término de búsqueda, marca o código EAN (como <strong>"gaseosa"</strong>) arriba o usá las sugerencias rápidas para normalizar sus precios y compararlos de forma justa.
                         </p>
                       </div>
                     ) : marcasPropiasComparative.length === 0 ? (
