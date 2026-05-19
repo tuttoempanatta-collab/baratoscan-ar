@@ -196,6 +196,8 @@ export default function ComparativaPage() {
   const [duelShowOnly, setDuelShowOnly] = useState<'todos' | 'compartidos' | 'soloA' | 'soloB'>('todos');
   const [duelProductMode, setDuelProductMode] = useState<'global' | 'filtrado' | 'articulo'>('global');
   const [duelSelectedEan, setDuelSelectedEan] = useState('');
+  const [duelCustomSelectedProducts, setDuelCustomSelectedProducts] = useState<Record<string, CsvDataRow | null>>({});
+  const [duelStoreSearch, setDuelStoreSearch] = useState<Record<string, string>>({});
 
   // Inicialización automática de comercios en el duelo
   React.useEffect(() => {
@@ -674,20 +676,45 @@ export default function ComparativaPage() {
     isTiedCheapest?: boolean;
     priceDiffPct?: number;
     priceDiffAbs?: number;
+    isCustomDuel?: boolean;
+    customNames?: Record<string, string>;
+    customEans?: Record<string, string>;
   }
 
   const duelProductsBase = useMemo(() => {
-    let list = productsList;
-    if (duelProductMode === 'filtrado' || duelProductMode === 'articulo') {
-      list = filteredProducts;
-    }
-    
     if (duelProductMode === 'articulo') {
-      if (duelSelectedEan) {
-        list = list.filter(p => p.ean === duelSelectedEan);
-      } else {
-        list = [];
+      const activePrices: Record<string, number> = {};
+      const customNames: Record<string, string> = {};
+      const customEans: Record<string, string> = {};
+      
+      duelCommerces.forEach(cName => {
+        const selected = duelCustomSelectedProducts[cName];
+        if (selected) {
+          activePrices[cName] = Number(selected.precio) || 0;
+          customNames[cName] = selected.nombre || 'Producto Desconocido';
+          customEans[cName] = selected.ean || '-';
+        }
+      });
+
+      if (Object.keys(activePrices).length > 0) {
+        return [{
+          ean: 'custom-duel',
+          nombre: 'Duelo de Artículos Seleccionados',
+          marca: 'Varios',
+          familia: 'Varios',
+          tipo_marca: 'Propia',
+          prices: activePrices,
+          customNames,
+          customEans,
+          isCustomDuel: true
+        } as any];
       }
+      return [];
+    }
+
+    let list = productsList;
+    if (duelProductMode === 'filtrado') {
+      list = filteredProducts;
     }
 
     const term = duelSearch.toLowerCase();
@@ -701,7 +728,7 @@ export default function ComparativaPage() {
     }
     
     return list;
-  }, [productsList, filteredProducts, duelProductMode, duelSelectedEan, duelSearch]);
+  }, [productsList, filteredProducts, duelProductMode, duelSearch, duelCommerces, duelCustomSelectedProducts]);
 
   const duelResults = useMemo(() => {
     if (duelCommerces.length === 0) return null;
@@ -731,11 +758,7 @@ export default function ComparativaPage() {
       const priceDiffPct = minPrice > 0 ? (priceDiffAbs / minPrice) * 100 : 0;
 
       products.push({
-        ean: p.ean,
-        nombre: p.nombre,
-        marca: p.marca || '',
-        familia: p.familia || '',
-        tipo_marca: p.tipo_marca || '',
+        ...p,
         prices: activePrices,
         cheapestCommerce,
         isTiedCheapest,
@@ -1567,21 +1590,60 @@ export default function ComparativaPage() {
                           <div className="lg:col-span-2 flex flex-col justify-between">
                             {duelProductMode === 'articulo' ? (
                               <div className="h-full flex flex-col justify-start">
-                                <label className="block text-xs font-extrabold text-slate-500 mb-2 uppercase tracking-wider">Seleccionar Artículo para Análisis</label>
-                                <select
-                                  className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-900 bg-white shadow-sm"
-                                  value={duelSelectedEan}
-                                  onChange={(e) => setDuelSelectedEan(e.target.value)}
-                                >
-                                  <option value="">Seleccioná un producto del listado...</option>
-                                  {filteredProducts.map(p => (
-                                    <option key={p.ean} value={p.ean}>
-                                      {p.nombre} ({p.marca || 'Sin marca'}) - EAN: {p.ean}
-                                    </option>
-                                  ))}
-                                </select>
+                                <label className="block text-xs font-extrabold text-slate-500 mb-3 uppercase tracking-wider">
+                                  Artículos a Comparar por Comercio
+                                </label>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                  {duelCommerces.map((cName) => {
+                                    const commerceProducts = commerces.find(c => c.name === cName)?.data || [];
+                                    const searchVal = (duelStoreSearch[cName] || '').toLowerCase().trim();
+                                    
+                                    const filteredStoreProducts = searchVal
+                                      ? commerceProducts.filter(p => 
+                                          (p.nombre || '').toLowerCase().includes(searchVal) || 
+                                          (p.ean || '').includes(searchVal) ||
+                                          (p.marca || '').toLowerCase().includes(searchVal)
+                                        )
+                                      : commerceProducts.slice(0, 100);
+
+                                    return (
+                                      <div key={cName} className="bg-white p-3 rounded-2xl border border-slate-200 shadow-sm flex flex-col gap-2">
+                                        <div className="flex justify-between items-center">
+                                          <span className="text-xs font-bold text-slate-700 truncate max-w-[70%] block" title={cName}>
+                                            {cName}
+                                          </span>
+                                          <span className="text-[9px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full font-bold">
+                                            {commerceProducts.length} ítems
+                                          </span>
+                                        </div>
+                                        <input
+                                          type="text"
+                                          placeholder="Buscar artículo..."
+                                          className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-900 bg-slate-50"
+                                          value={duelStoreSearch[cName] || ''}
+                                          onChange={(e) => setDuelStoreSearch(prev => ({ ...prev, [cName]: e.target.value }))}
+                                        />
+                                        <select
+                                          className="w-full px-2 py-1.5 rounded-lg border border-slate-200 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-900 bg-white"
+                                          value={duelCustomSelectedProducts[cName]?.ean || ''}
+                                          onChange={(e) => {
+                                            const selectedProduct = commerceProducts.find(p => p.ean === e.target.value) || null;
+                                            setDuelCustomSelectedProducts(prev => ({ ...prev, [cName]: selectedProduct }));
+                                          }}
+                                        >
+                                          <option value="">Seleccionar artículo...</option>
+                                          {filteredStoreProducts.map(p => (
+                                            <option key={p.ean} value={p.ean}>
+                                              {p.nombre} {p.marca && `(${p.marca})`} - ${(Number(p.precio) || 0).toFixed(2)}
+                                            </option>
+                                          ))}
+                                        </select>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
                                 <p className="text-[11px] text-slate-400 mt-2 italic">
-                                  El listado está restringido por los filtros activos en la página (se muestran {filteredProducts.length} productos).
+                                  Buscá y seleccioná un producto de cada comercio. Se compararán los precios finales seleccionados.
                                 </p>
                               </div>
                             ) : (
@@ -1683,11 +1745,16 @@ export default function ComparativaPage() {
                                     <div>
                                       <div className="flex flex-wrap gap-2 items-center">
                                         <span className="text-xs font-extrabold text-indigo-600 bg-indigo-50 border border-indigo-100 px-2.5 py-0.5 rounded-full uppercase tracking-wider">Ficha de Análisis</span>
-                                        {prod.marca && <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">{prod.marca}</span>}
-                                        {prod.familia && <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">{prod.familia}</span>}
+                                        {!prod.isCustomDuel && prod.marca && <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">{prod.marca}</span>}
+                                        {!prod.isCustomDuel && prod.familia && <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">{prod.familia}</span>}
+                                        {prod.isCustomDuel && <span className="text-xs font-bold text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded-md">Artículos Independientes</span>}
                                       </div>
                                       <h3 className="text-xl font-black text-slate-900 mt-2">{prod.nombre}</h3>
-                                      <p className="text-xs text-slate-400 mt-1">Código de barras (EAN): <span className="font-bold font-mono text-slate-600">{prod.ean}</span></p>
+                                      {prod.isCustomDuel ? (
+                                        <p className="text-xs text-slate-400 mt-1 font-medium">Comparación cruzada de productos seleccionados manualmente por comercio</p>
+                                      ) : (
+                                        <p className="text-xs text-slate-400 mt-1">Código de barras (EAN): <span className="font-bold font-mono text-slate-600">{prod.ean}</span></p>
+                                      )}
                                     </div>
                                     <div className="bg-emerald-50 border border-emerald-100 p-3 rounded-2xl text-right">
                                       <p className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">Mejor precio disponible</p>
@@ -1719,8 +1786,15 @@ export default function ComparativaPage() {
                                           return (
                                             <div key={cName} className="space-y-1">
                                               <div className="flex justify-between items-center text-xs">
-                                                <span className={`font-bold ${isCheapest ? 'text-emerald-600' : isExpensive ? 'text-rose-600' : 'text-slate-700'}`}>{cName}</span>
-                                                <span className="font-black text-slate-800">
+                                                <div className="flex flex-col max-w-[65%]">
+                                                  <span className={`font-bold ${isCheapest ? 'text-emerald-600' : isExpensive ? 'text-rose-600' : 'text-slate-700'} truncate`}>{cName}</span>
+                                                  {prod.customNames && prod.customNames[cName] && (
+                                                    <span className="text-[10px] text-slate-500 font-semibold truncate leading-tight mt-0.5" title={prod.customNames[cName]}>
+                                                      {prod.customNames[cName]} {prod.customEans && prod.customEans[cName] && `(EAN: ${prod.customEans[cName]})`}
+                                                    </span>
+                                                  )}
+                                                </div>
+                                                <span className="font-black text-slate-800 shrink-0">
                                                   ${pr.toFixed(2)}
                                                   {isCheapest && <span className="text-[10px] text-emerald-500 bg-emerald-50 border border-emerald-100 px-1.5 py-0.5 rounded ml-1 font-bold">El más barato</span>}
                                                 </span>
