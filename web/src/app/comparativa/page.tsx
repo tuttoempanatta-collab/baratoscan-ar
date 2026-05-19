@@ -106,6 +106,35 @@ async function clearCommerces(): Promise<void> {
 
 let nextId = typeof window !== 'undefined' ? Date.now() : 1;
 
+function getTipoMarca(marca: string, tipo_marca: string, commerceName: string): string {
+  const cleanTipo = (tipo_marca || '').toLowerCase().trim();
+  if (cleanTipo === 'propia' || cleanTipo === 'p' || cleanTipo.includes('propia') || cleanTipo.includes('blanca')) {
+    return 'Propia';
+  }
+
+  const val = (marca || '').toLowerCase().trim();
+  const cleanCommerce = (commerceName || '').toLowerCase();
+  if (
+    val.includes('propia') || 
+    val.includes('blanca') || 
+    (val.length > 2 && cleanCommerce.includes(val)) ||
+    (val.length > 2 && val.includes(cleanCommerce)) ||
+    val === 'dia' ||
+    val === 'coto' ||
+    val === 'carrefour' ||
+    val === 'vea' ||
+    val === 'disco' ||
+    val === 'jumbo' ||
+    val === 'changomas' ||
+    val === 'great value' ||
+    val === 'equate'
+  ) {
+    return 'Propia';
+  }
+
+  return 'Nacional';
+}
+
 interface ParsedUnit {
   quantity: number;
   unit: 'L' | 'Kg' | 'U';
@@ -329,38 +358,43 @@ export default function ComparativaPage() {
           let precio = 0;
           let marca = '';
           let familia = '';
-          let tipo_marca = 'Nacional';
+          let csvTipoMarca = '';
 
+          // 1. Direct standard SEPA column checks
           if (row['id_producto'] !== undefined) ean = String(row['id_producto']);
           if (row['productos_descripcion'] !== undefined) nombre = String(row['productos_descripcion']);
           if (row['productos_precio_lista'] !== undefined) {
             precio = parseFloat(String(row['productos_precio_lista']).replace(/[^0-9,-.]+/g, "").replace(',', '.'));
           }
           if (row['productos_marca'] !== undefined) marca = String(row['productos_marca']);
+          if (row['productos_tipo_marca'] !== undefined) csvTipoMarca = String(row['productos_tipo_marca']);
 
-          if (!ean || !nombre) {
-            for (const key in row) {
-              const lowerKey = key.toLowerCase().trim();
-              if (!ean && (lowerKey === 'ean' || lowerKey === 'codigo' || lowerKey === 'código' || lowerKey.includes('id_producto'))) {
-                ean = String(row[key]);
-              } else if (!nombre && (lowerKey === 'nombre' || lowerKey === 'producto' || lowerKey.includes('descrip'))) {
-                nombre = String(row[key]);
-              } else if (!precio && (lowerKey === 'precio' || lowerKey.includes('importe') || lowerKey.includes('precio_lista'))) {
-                precio = parseFloat(String(row[key] || '0').replace(/[^0-9,-.]+/g, "").replace(',', '.'));
-              } else if (!marca && (lowerKey === 'marca' || lowerKey === 'tipo')) {
-                marca = String(row[key]);
-              } else if (!familia && (lowerKey.includes('familia') || lowerKey.includes('categoria') || lowerKey.includes('rubro'))) {
-                familia = String(row[key]);
-              }
+          // 2. Fallback key loop for other column names
+          for (const key in row) {
+            const lowerKey = key.toLowerCase().trim();
+            if (!ean && (lowerKey === 'ean' || lowerKey === 'codigo' || lowerKey === 'código' || lowerKey.includes('id_producto'))) {
+              ean = String(row[key]);
+            }
+            if (!nombre && (lowerKey === 'nombre' || lowerKey === 'producto' || lowerKey.includes('descrip'))) {
+              nombre = String(row[key]);
+            }
+            if (!precio && (lowerKey === 'precio' || lowerKey.includes('importe') || lowerKey.includes('precio_lista'))) {
+              precio = parseFloat(String(row[key] || '0').replace(/[^0-9,-.]+/g, "").replace(',', '.'));
+            }
+            if (!marca && (lowerKey === 'marca' || lowerKey === 'tipo')) {
+              marca = String(row[key]);
+            }
+            if (!familia && (lowerKey.includes('familia') || lowerKey.includes('categoria') || lowerKey.includes('rubro'))) {
+              familia = String(row[key]);
+            }
+            if (!csvTipoMarca && (lowerKey === 'tipo_marca' || lowerKey.includes('tipo_marca') || lowerKey.includes('tipo_de_marca'))) {
+              csvTipoMarca = String(row[key]);
             }
           }
 
           if (!ean || ean === 'undefined') return;
 
-          const val = marca.toLowerCase();
-          if (val.includes('propia') || val.includes('blanca') || val.includes(commerceName.toLowerCase())) {
-            tipo_marca = 'Propia';
-          }
+          const tipo_marca = getTipoMarca(marca, csvTipoMarca, commerceName);
 
           if (uniqueProducts.has(ean)) {
             const existing = uniqueProducts.get(ean)!;
@@ -423,17 +457,25 @@ export default function ComparativaPage() {
       commerce.data.forEach(item => {
         const key = item.ean || item.nombre;
         if (!key) return;
+
+        const currentBrand = item.marca || '';
+        const currentTipoRaw = item.tipo_marca || '';
+        const calculatedTipo = getTipoMarca(currentBrand, currentTipoRaw, commerce.name);
+
         if (!combined[key]) {
           combined[key] = {
             ean: item.ean || '-',
             nombre: item.nombre || 'Producto Desconocido',
-            tipo_marca: item.tipo_marca || 'Nacional',
-            marca: item.marca || '',
+            tipo_marca: calculatedTipo,
+            marca: currentBrand,
             familia: item.familia || '',
             prices: {},
           };
         }
-        if (item.tipo_marca) combined[key].tipo_marca = item.tipo_marca;
+
+        if (calculatedTipo === 'Propia') {
+          combined[key].tipo_marca = 'Propia';
+        }
         if (item.marca) combined[key].marca = item.marca;
         if (item.familia) combined[key].familia = item.familia;
         if (item.precio && !isNaN(Number(item.precio))) {
