@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { ExternalLink, ShoppingCart, AlertCircle } from 'lucide-react';
+import { ShoppingCart, AlertCircle } from 'lucide-react';
 
 interface PriceRecord {
   cadena: string;

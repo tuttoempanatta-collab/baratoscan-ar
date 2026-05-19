@@ -34,8 +34,8 @@ async def scrape_product(ean: str):
         DiscoScraper(),
         ChangoMasScraper(),
         CarrefourScraper(),
-        VeaScraper(),
-        DiarcoScraper()
+        VeaScraper()
+        # DiarcoScraper() # Diarco ya no tiene e-commerce online
     ]
     
     # Run all scrapers concurrently

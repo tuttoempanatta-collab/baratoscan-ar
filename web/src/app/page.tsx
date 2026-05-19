@@ -5,21 +5,34 @@ import Scanner from '@/components/Scanner';
 import ProductCard from '@/components/ProductCard';
 import ComparisonTable from '@/components/ComparisonTable';
 import { Search, ScanBarcode, Loader2 } from 'lucide-react';
+import Link from 'next/link';
+
+interface ScrapedProduct {
+  ean: string;
+  nombre?: string;
+  precio?: number;
+  precio_oferta?: number;
+  imagen_url?: string;
+  cadena: string;
+  timestamp: string;
+  url_producto?: string;
+  error?: string;
+}
 
 export default function Home() {
   const [isScanning, setIsScanning] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
-  const [scrapedData, setScrapedData] = useState<any[]>([]);
-  const [currentEan, setCurrentEan] = useState<string>('');
+  const [scrapedData, setScrapedData] = useState<ScrapedProduct[]>([]);
+  const [currentQuery, setCurrentQuery] = useState<string>('');
 
-  const handleScan = async (ean: string) => {
+  const handleScan = async (query: string) => {
     setIsScanning(false);
     setIsLoading(true);
-    setCurrentEan(ean);
+    setCurrentQuery(query);
     setScrapedData([]);
 
     try {
-      const res = await fetch(`/api/scan?ean=${ean}`);
+      const res = await fetch(`/api/scan?query=${encodeURIComponent(query)}`);
       if (res.ok) {
         const data = await res.json();
         setScrapedData(data);
@@ -50,9 +63,12 @@ export default function Home() {
             <ScanBarcode size={40} className="text-white drop-shadow-md" />
           </div>
           <h1 className="text-4xl font-black tracking-tight mb-2 drop-shadow-sm">BaratoScan AR</h1>
-          <p className="text-indigo-100 font-medium text-lg max-w-md">
+          <p className="text-indigo-100 font-medium text-lg max-w-md mb-6">
             Escaneá el código de barras y encontrá el supermercado más barato al instante.
           </p>
+          <Link href="/comparativa" className="bg-white/20 hover:bg-white/30 transition-all text-white px-6 py-2 rounded-full backdrop-blur-md border border-white/30 font-medium flex items-center gap-2">
+            Ver Comparativa de CSVs
+          </Link>
         </div>
       </header>
 
@@ -72,7 +88,7 @@ export default function Home() {
                   Estamos consultando en Día, Coto, Carrefour y más supermercados. Esto puede demorar unos segundos.
                 </p>
                 <div className="mt-6 font-mono font-bold bg-slate-100 px-4 py-2 rounded-full text-slate-600">
-                  EAN: {currentEan}
+                  Búsqueda: {currentQuery}
                 </div>
               </div>
             ) : (
@@ -89,11 +105,11 @@ export default function Home() {
                 {validProduct ? (
                   <>
                     <ProductCard 
-                      nombre={validProduct.nombre} 
-                      ean={currentEan} 
-                      imagen_url={validProduct.imagen_url} 
+                      nombre={validProduct.nombre || ''} 
+                      query={currentQuery} 
+                      imagen_url={validProduct.imagen_url || null} 
                     />
-                    <ComparisonTable prices={scrapedData} />
+                    <ComparisonTable prices={scrapedData as any} />
                   </>
                 ) : (
                    <div className="bg-white p-8 rounded-3xl shadow-xl border border-slate-100 flex flex-col items-center text-center max-w-md w-full">
@@ -102,7 +118,7 @@ export default function Home() {
                      </div>
                      <h2 className="text-2xl font-bold text-slate-800 mb-2">Producto no encontrado</h2>
                      <p className="text-slate-500 mb-6 font-medium">
-                       No pudimos encontrar precios para el EAN <strong>{currentEan}</strong> en ninguno de los supermercados.
+                       No pudimos encontrar precios para <strong>{currentQuery}</strong> en ninguno de los supermercados.
                      </p>
                      <button 
                         onClick={() => setIsScanning(true)}

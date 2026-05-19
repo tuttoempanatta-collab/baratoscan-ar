@@ -6,7 +6,7 @@ import { Camera, Keyboard, Search } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 interface ScannerProps {
-  onScan: (ean: string) => void;
+  onScan: (query: string) => void;
 }
 
 export default function Scanner({ onScan }: ScannerProps) {
@@ -33,7 +33,7 @@ export default function Scanner({ onScan }: ScannerProps) {
           scanner.clear();
           onScan(decodedText);
         },
-        (error) => {
+        () => {
           // Ignore frequent scanning errors
         }
       );

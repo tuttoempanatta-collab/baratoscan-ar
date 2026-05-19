@@ -3,11 +3,13 @@ import { motion } from 'framer-motion';
 
 interface ProductCardProps {
   nombre: string;
-  ean: string;
+  query: string;
   imagen_url: string | null;
 }
 
-export default function ProductCard({ nombre, ean, imagen_url }: ProductCardProps) {
+export default function ProductCard({ nombre, query, imagen_url }: ProductCardProps) {
+  const isEan = /^\d+$/.test(query);
+
   return (
     <motion.div 
       initial={{ opacity: 0, y: 20 }}
@@ -16,6 +18,7 @@ export default function ProductCard({ nombre, ean, imagen_url }: ProductCardProp
     >
       <div className="w-32 h-32 flex-shrink-0 bg-slate-50 rounded-2xl p-2 flex items-center justify-center border border-slate-100 overflow-hidden">
         {imagen_url ? (
+          /* eslint-disable-next-line @next/next/no-img-element */
           <img src={imagen_url} alt={nombre} className="max-w-full max-h-full object-contain" />
         ) : (
           <div className="w-16 h-16 bg-slate-200 rounded-full flex items-center justify-center">
@@ -29,7 +32,7 @@ export default function ProductCard({ nombre, ean, imagen_url }: ProductCardProp
           {nombre}
         </h2>
         <div className="inline-block bg-slate-100 px-3 py-1 rounded-full text-slate-500 font-mono text-sm tracking-wider font-semibold border border-slate-200">
-          EAN: {ean}
+          {isEan ? 'EAN: ' : 'Búsqueda: '}{query}
         </div>
       </div>
     </motion.div>
