@@ -25,6 +25,38 @@ interface CommerceData {
 
 let nextId = 1;
 
+interface ParsedUnit {
+  quantity: number;
+  unit: 'L' | 'Kg' | 'U';
+}
+
+function parseVolumeOrWeight(name: string): ParsedUnit | null {
+  // Matches patterns like: 2.25L, 2,25 L, 500g, 500 gr, 1kg, 1.5 kg, 350 cc, 900 ml, 1 u, etc.
+  const regex = /(\d+(?:[.,]\d+)?)\s*(ml|cc|l|lt|g|gr|kg|u)(?!\w)/i;
+  const match = name.match(regex);
+  if (!match) return null;
+
+  const valueStr = match[1].replace(',', '.');
+  const quantity = parseFloat(valueStr);
+  const unitRaw = match[2].toLowerCase();
+
+  if (isNaN(quantity) || quantity <= 0) return null;
+
+  if (unitRaw === 'l' || unitRaw === 'lt') {
+    return { quantity, unit: 'L' };
+  } else if (unitRaw === 'ml' || unitRaw === 'cc') {
+    return { quantity: quantity / 1000, unit: 'L' };
+  } else if (unitRaw === 'kg') {
+    return { quantity, unit: 'Kg' };
+  } else if (unitRaw === 'g' || unitRaw === 'gr') {
+    return { quantity: quantity / 1000, unit: 'Kg' };
+  } else if (unitRaw === 'u') {
+    return { quantity, unit: 'U' };
+  }
+
+  return null;
+}
+
 export default function ComparativaPage() {
   const [commerces, setCommerces] = useState<CommerceData[]>([]);
   const [newCommerceName, setNewCommerceName] = useState('');
@@ -44,7 +76,7 @@ export default function ComparativaPage() {
 
   // Marcas Propias
   const [showMarcasPropias, setShowMarcasPropias] = useState(false);
-  const [marcasPropiasSortBy, setMarcasPropiasSortBy] = useState<'nombre' | 'diff'>('diff');
+  const [marcasPropiasSortBy, setMarcasPropiasSortBy] = useState<'unitPrice' | 'nombre' | 'price'>('unitPrice');
   const [marcasPropiasSearch, setMarcasPropiasSearch] = useState('');
 
   // Duelo Multi-Comercio
@@ -423,23 +455,63 @@ export default function ComparativaPage() {
 
   // Marcas Propias: comparativa de precios de marcas propias entre todos los comercios
   const marcasPropiasComparative = useMemo(() => {
+    // 1. Obtener todos los productos clasificados como Marca Propia
     const propias = productsList.filter(p => p.tipo_marca === 'Propia');
-    return propias
-      .map(p => {
-        const entries = Object.entries(p.prices);
-        if (entries.length === 0) return null;
-        const prices = entries.map(([, v]) => v);
-        const minPrice = Math.min(...prices);
-        const maxPrice = Math.max(...prices);
-        const minCommerces = entries.filter(([, v]) => v === minPrice).map(([n]) => n);
-        const maxCommerces = entries.filter(([, v]) => v === maxPrice).map(([n]) => n);
-        const diff = maxPrice - minPrice;
-        const diffPct = minPrice > 0 ? (diff / minPrice) * 100 : 0;
-        return { ...p, minPrice, maxPrice, minCommerces, maxCommerces, diff, diffPct, priceCount: entries.length };
-      })
-      .filter((p): p is NonNullable<typeof p> => p !== null && p.priceCount > 1)
-      .filter(p => !marcasPropiasSearch || p.nombre.toLowerCase().includes(marcasPropiasSearch.toLowerCase()) || p.marca?.toLowerCase().includes(marcasPropiasSearch.toLowerCase()))
-      .sort((a, b) => marcasPropiasSortBy === 'diff' ? b.diff - a.diff : a.nombre.localeCompare(b.nombre));
+    
+    // 2. Parsear el volumen/peso y calcular el precio unitario
+    const parsedPropias = propias.map(p => {
+      const stores = Object.keys(p.prices);
+      if (stores.length === 0) return null;
+      const storeName = stores[0]; // Como es marca propia, solo suele tener precio en su propio comercio
+      const price = p.prices[storeName];
+      
+      const parsedUnit = parseVolumeOrWeight(p.nombre);
+      let unitPrice = price;
+      let displayUnitPrice = '';
+      let displaySize = 'N/D';
+      
+      if (parsedUnit) {
+        unitPrice = price / parsedUnit.quantity;
+        displayUnitPrice = `$${unitPrice.toFixed(2)} / ${parsedUnit.unit}`;
+        displaySize = `${parsedUnit.quantity} ${parsedUnit.unit}`;
+      } else {
+        displayUnitPrice = `$${price.toFixed(2)} / U`;
+        displaySize = '1 U';
+      }
+      
+      return {
+        ...p,
+        storeName,
+        price,
+        unitPrice,
+        displayUnitPrice,
+        displaySize,
+        parsedUnit
+      };
+    }).filter((p): p is NonNullable<typeof p> => p !== null);
+
+    // 3. Filtrar y ordenar los resultados según la búsqueda y el criterio de ordenamiento
+    const term = marcasPropiasSearch.toLowerCase().trim();
+    let result = parsedPropias;
+    
+    if (term) {
+      result = parsedPropias.filter(p => 
+        p.nombre.toLowerCase().includes(term) || 
+        (p.familia?.toLowerCase() || '').includes(term) ||
+        (p.marca?.toLowerCase() || '').includes(term)
+      );
+    }
+
+    // Ordenar
+    return [...result].sort((a, b) => {
+      if (marcasPropiasSortBy === 'unitPrice') {
+        return a.unitPrice - b.unitPrice;
+      } else if (marcasPropiasSortBy === 'price') {
+        return a.price - b.price;
+      } else {
+        return a.nombre.localeCompare(b.nombre);
+      }
+    });
   }, [productsList, marcasPropiasSortBy, marcasPropiasSearch]);
 
   // Duelo Multi-Comercio
@@ -1697,82 +1769,198 @@ export default function ComparativaPage() {
                   <div>
                     <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
                       <Star className="text-purple-500" size={22} />
-                      Marcas Propias — Comparativa entre Comercios
+                      Duelo de Marcas Propias Homologado
                       <span className="text-sm font-medium text-purple-600 bg-purple-100 px-3 py-1 rounded-full ml-1">
                         {marcasPropiasComparative.length} productos
                       </span>
                     </h2>
-                    <p className="text-sm text-slate-500 mt-1">Productos de marca propia que aparecen en más de un comercio — ¿cuál es más barato?</p>
+                    <p className="text-sm text-slate-500 mt-1">Compará marcas propias (Dia, Coto, Carrefour, etc.) normalizando su precio por Litro o Kilogramo.</p>
                   </div>
                   <ChevronDown size={20} className={`text-slate-400 transition-transform shrink-0 ${showMarcasPropias ? 'rotate-180' : ''}`} />
                 </div>
                 {showMarcasPropias && (
                   <div className="p-6">
-                    {marcasPropiasComparative.length === 0 ? (
+                    <div className="flex flex-col md:flex-row gap-3 mb-5">
+                      <div className="flex-1 relative">
+                        <input
+                          type="text"
+                          placeholder="Ingresá un término para comparar marcas propias (ej: cola, fideos, leche)..."
+                          className="w-full pl-4 pr-10 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 text-slate-950 bg-white"
+                          value={marcasPropiasSearch}
+                          onChange={e => setMarcasPropiasSearch(e.target.value)}
+                        />
+                        {marcasPropiasSearch && (
+                          <button 
+                            onClick={() => setMarcasPropiasSearch('')}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 font-bold animate-fade-in"
+                          >
+                            ×
+                          </button>
+                        )}
+                      </div>
+                      
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-slate-500 font-medium whitespace-nowrap">Ordenar por:</span>
+                        <select
+                          value={marcasPropiasSortBy}
+                          onChange={e => setMarcasPropiasSortBy(e.target.value as any)}
+                          className="px-3 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-purple-400"
+                        >
+                          <option value="unitPrice">Precio Normalizado ($/Kg o $/L)</option>
+                          <option value="price">Precio de Lista</option>
+                          <option value="nombre">Nombre (A-Z)</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Sugerencias de búsqueda rápida */}
+                    <div className="flex flex-wrap gap-2 mb-6 items-center">
+                      <span className="text-xs text-slate-400 font-medium">Búsquedas rápidas:</span>
+                      {['Cola', 'Leche', 'Fideos', 'Azúcar', 'Harina', 'Aceite', 'Arroz', 'Puré', 'Galletitas', 'Jabón'].map(term => (
+                        <button
+                          key={term}
+                          onClick={() => setMarcasPropiasSearch(term)}
+                          className={`text-xs px-3 py-1.5 rounded-full border transition-all ${
+                            marcasPropiasSearch.toLowerCase() === term.toLowerCase()
+                              ? 'bg-purple-600 text-white border-purple-600 font-bold'
+                              : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100 hover:border-slate-300'
+                          }`}
+                        >
+                          {term}
+                        </button>
+                      ))}
+                    </div>
+
+                    {!marcasPropiasSearch ? (
+                      <div className="bg-slate-50 rounded-2xl p-6 text-center border border-dashed border-slate-200">
+                        <Star className="text-purple-300 w-10 h-10 mx-auto mb-3 animate-pulse" />
+                        <h3 className="font-bold text-slate-700 mb-1">Duelo de Marcas Propias</h3>
+                        <p className="text-xs text-slate-500 max-w-md mx-auto leading-relaxed">
+                          Las marcas propias tienen códigos de barras y descripciones diferentes. 
+                          Ingresá un término de búsqueda (como <strong>"cola"</strong>) arriba o usá las sugerencias rápidas para normalizar sus precios y compararlos de forma justa.
+                        </p>
+                      </div>
+                    ) : marcasPropiasComparative.length === 0 ? (
                       <div className="text-center text-slate-400 py-8">
-                        <Star size={36} className="mx-auto mb-3 text-slate-200" />
-                        <p className="font-medium">No hay marcas propias compartidas entre comercios.</p>
-                        <p className="text-sm mt-1">Cargá más comercios con sus archivos SEPA.</p>
+                        <AlertCircle size={36} className="mx-auto mb-3 text-slate-300" />
+                        <p className="font-medium text-slate-600">No se encontraron productos de marca propia para "{marcasPropiasSearch}".</p>
+                        <p className="text-xs mt-1">Asegurate de que las marcas de las cadenas cargadas estén marcadas como propia en el CSV.</p>
                       </div>
                     ) : (
-                      <>
-                        <div className="flex flex-col md:flex-row gap-3 mb-5">
-                          <input
-                            type="text"
-                            placeholder="Buscar producto o marca..."
-                            className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 text-slate-900"
-                            value={marcasPropiasSearch}
-                            onChange={e => setMarcasPropiasSearch(e.target.value)}
-                          />
-                          <button
-                            onClick={() => setMarcasPropiasSortBy(marcasPropiasSortBy === 'diff' ? 'nombre' : 'diff')}
-                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-700 hover:bg-slate-50 transition-all"
-                          >
-                            <ArrowUpDown size={15} />
-                            {marcasPropiasSortBy === 'diff' ? 'Ordenado: mayor diferencia' : 'Ordenado: A-Z'}
-                          </button>
-                        </div>
-                        <div className="overflow-x-auto">
+                      <div className="space-y-6">
+                        {/* Winner Banner Card */}
+                        {marcasPropiasComparative.length > 1 && (() => {
+                          const cheapest = marcasPropiasComparative[0];
+                          const mostExpensive = marcasPropiasComparative[marcasPropiasComparative.length - 1];
+                          const savingsPct = mostExpensive.unitPrice > 0 
+                            ? ((mostExpensive.unitPrice - cheapest.unitPrice) / mostExpensive.unitPrice) * 100 
+                            : 0;
+
+                          return (
+                            <div className="bg-gradient-to-r from-emerald-500/10 via-teal-500/5 to-transparent border border-emerald-200 rounded-2xl p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                              <div className="flex items-start gap-4">
+                                <div className="w-12 h-12 rounded-full bg-emerald-500 flex items-center justify-center text-white shrink-0 shadow-md">
+                                  <Trophy size={24} />
+                                </div>
+                                <div>
+                                  <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                                    Opción más barata
+                                  </span>
+                                  <h4 className="font-extrabold text-slate-800 text-base mt-1">
+                                    {cheapest.nombre}
+                                  </h4>
+                                  <p className="text-xs text-slate-500 mt-0.5">
+                                    Cadena: <strong className="text-slate-700">{cheapest.storeName}</strong> ({cheapest.displaySize})
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="text-left md:text-right shrink-0">
+                                <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Precio Unitario Normalizado</p>
+                                <p className="text-2xl font-black text-emerald-600">{cheapest.displayUnitPrice}</p>
+                                {savingsPct > 0 && (
+                                  <p className="text-xs text-emerald-700 font-bold bg-emerald-100 px-2 py-0.5 rounded mt-1 inline-block">
+                                    Ahorro de hasta {savingsPct.toFixed(1)}% por unidad de medida
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })()}
+
+                        {/* Results Table */}
+                        <div className="overflow-x-auto border border-slate-100 rounded-xl">
                           <table className="w-full text-left border-collapse text-sm">
                             <thead>
-                              <tr className="border-b border-slate-200 text-xs text-slate-500 uppercase tracking-wider">
-                                <th className="pb-3 font-bold">Producto</th>
-                                <th className="pb-3 font-bold text-emerald-600">Más barato</th>
-                                <th className="pb-3 font-bold text-rose-600">Más caro</th>
-                                <th className="pb-3 font-bold text-right">Diferencia</th>
+                              <tr className="border-b border-slate-200 bg-slate-50 text-xs text-slate-500 uppercase tracking-wider">
+                                <th className="p-3 font-bold text-center w-12">Puesto</th>
+                                <th className="p-3 font-bold">Producto / Marca</th>
+                                <th className="p-3 font-bold">Supermercado</th>
+                                <th className="p-3 font-bold text-center">Medida</th>
+                                <th className="p-3 font-bold text-right">Precio Lista</th>
+                                <th className="p-3 font-bold text-right text-purple-700 bg-purple-50/50">Precio Normalizado</th>
                               </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-100">
-                              {marcasPropiasComparative.map((p, i) => (
-                                <tr key={i} className="hover:bg-slate-50 transition-colors">
-                                  <td className="py-3 pr-4 max-w-[260px]">
-                                    <p className="font-semibold text-slate-800 truncate" title={p.nombre}>{p.nombre}</p>
-                                    <p className="text-xs text-slate-400 mt-0.5">{p.marca} · EAN: {p.ean}</p>
-                                  </td>
-                                  <td className="py-3 pr-4">
-                                    <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-1 rounded-lg font-bold text-xs">
-                                      ▲ ${p.minPrice.toFixed(2)}
-                                    </span>
-                                    <div className="text-xs text-slate-400 mt-1">{p.minCommerces.join(', ')}</div>
-                                  </td>
-                                  <td className="py-3 pr-4">
-                                    <span className="inline-flex items-center gap-1 bg-rose-50 text-rose-700 border border-rose-200 px-2 py-1 rounded-lg font-bold text-xs">
-                                      ▼ ${p.maxPrice.toFixed(2)}
-                                    </span>
-                                    <div className="text-xs text-slate-400 mt-1">{p.maxCommerces.join(', ')}</div>
-                                  </td>
-                                  <td className="py-3 text-right">
-                                    <span className={`font-bold text-sm ${p.diffPct > 20 ? 'text-rose-600' : p.diffPct > 10 ? 'text-amber-600' : 'text-slate-600'}`}>
-                                      +${p.diff.toFixed(2)}
-                                    </span>
-                                    <div className="text-xs text-slate-400">{p.diffPct.toFixed(1)}%</div>
-                                  </td>
-                                </tr>
-                              ))}
+                            <tbody className="divide-y divide-slate-100 bg-white">
+                              {marcasPropiasComparative.map((p, i) => {
+                                const isFirst = i === 0;
+                                const isLast = i === marcasPropiasComparative.length - 1 && marcasPropiasComparative.length > 1;
+                                
+                                // Color helper for table tags
+                                const getChainColor = (chain: string) => {
+                                  const c = chain.toLowerCase();
+                                  if (c.includes('dia')) return 'bg-red-100 text-red-700 border-red-200';
+                                  if (c.includes('coto')) return 'bg-blue-100 text-blue-700 border-blue-200';
+                                  if (c.includes('carrefour') || c.includes('inc')) return 'bg-sky-100 text-sky-700 border-sky-200';
+                                  if (c.includes('vea')) return 'bg-green-100 text-green-700 border-green-200';
+                                  if (c.includes('disco')) return 'bg-red-50 text-red-800 border-red-200';
+                                  if (c.includes('chango')) return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+                                  return 'bg-slate-100 text-slate-700 border-slate-200';
+                                };
+
+                                return (
+                                  <tr key={i} className={`hover:bg-slate-50/50 transition-colors ${isFirst ? 'bg-emerald-50/10' : ''}`}>
+                                    <td className="p-3 text-center font-black">
+                                      {isFirst ? (
+                                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-yellow-400 text-yellow-900 text-xs shadow-sm">🥇</span>
+                                      ) : i === 1 ? (
+                                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-slate-300 text-slate-800 text-xs shadow-sm">🥈</span>
+                                      ) : i === 2 ? (
+                                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-600 text-amber-50 text-xs shadow-sm">🥉</span>
+                                      ) : (
+                                        <span className="text-slate-400 text-xs">#{i + 1}</span>
+                                      )}
+                                    </td>
+                                    <td className="p-3">
+                                      <p className="font-semibold text-slate-800 leading-tight">{p.nombre}</p>
+                                      <p className="text-[10px] text-slate-400 mt-0.5">Marca: {p.marca || 'N/D'} · EAN: {p.ean}</p>
+                                    </td>
+                                    <td className="p-3">
+                                      <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-bold border ${getChainColor(p.storeName)}`}>
+                                        {p.storeName}
+                                      </span>
+                                    </td>
+                                    <td className="p-3 text-center text-xs font-medium text-slate-600">
+                                      {p.displaySize}
+                                    </td>
+                                    <td className="p-3 text-right font-bold text-slate-700">
+                                      ${p.price.toFixed(2)}
+                                    </td>
+                                    <td className={`p-3 text-right font-extrabold text-sm ${
+                                      isFirst 
+                                        ? 'text-emerald-600 bg-emerald-50/20' 
+                                        : isLast 
+                                          ? 'text-rose-600 bg-rose-50/10' 
+                                          : 'text-slate-800 bg-purple-50/10'
+                                    }`}>
+                                      {p.displayUnitPrice}
+                                    </td>
+                                  </tr>
+                                );
+                              })}
                             </tbody>
                           </table>
                         </div>
-                      </>
+                      </div>
                     )}
                   </div>
                 )}
