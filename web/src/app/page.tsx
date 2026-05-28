@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Scanner from '@/components/Scanner';
 import ComparisonTable from '@/components/ComparisonTable';
 import { Search, ScanBarcode, Loader2 } from 'lucide-react';
@@ -23,6 +23,28 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [scrapedData, setScrapedData] = useState<ScrapedProduct[]>([]);
   const [currentQuery, setCurrentQuery] = useState<string>('');
+  const [hasLoadedCache, setHasLoadedCache] = useState(false);
+
+  useEffect(() => {
+    const cachedQuery = localStorage.getItem('baratoscan_query');
+    const cachedData = localStorage.getItem('baratoscan_data');
+    const cachedIsScanning = localStorage.getItem('baratoscan_isScanning');
+
+    if (cachedQuery && cachedData) {
+      try {
+        setCurrentQuery(cachedQuery);
+        setScrapedData(JSON.parse(cachedData));
+        if (cachedIsScanning !== null) {
+          setIsScanning(cachedIsScanning === 'true');
+        } else {
+          setIsScanning(false);
+        }
+      } catch (e) {
+        console.error('Error al recuperar caché:', e);
+      }
+    }
+    setHasLoadedCache(true);
+  }, []);
 
   const handleScan = async (query: string) => {
     setIsScanning(false);
@@ -30,19 +52,29 @@ export default function Home() {
     setCurrentQuery(query);
     setScrapedData([]);
 
+    localStorage.setItem('baratoscan_query', query);
+    localStorage.setItem('baratoscan_isScanning', 'false');
+
     try {
       const res = await fetch(`/api/scan?query=${encodeURIComponent(query)}`);
       if (res.ok) {
         const data = await res.json();
         setScrapedData(data);
+        localStorage.setItem('baratoscan_data', JSON.stringify(data));
       } else {
         alert('Hubo un error al buscar el producto. Intenta nuevamente.');
         setIsScanning(true);
+        localStorage.removeItem('baratoscan_query');
+        localStorage.removeItem('baratoscan_data');
+        localStorage.setItem('baratoscan_isScanning', 'true');
       }
     } catch (err) {
       console.error(err);
       alert('Error de red al buscar el producto.');
       setIsScanning(true);
+      localStorage.removeItem('baratoscan_query');
+      localStorage.removeItem('baratoscan_data');
+      localStorage.setItem('baratoscan_isScanning', 'true');
     } finally {
       setIsLoading(false);
     }
@@ -87,10 +119,15 @@ export default function Home() {
 
       {/* Main Content Area */}
       <main className={`px-4 -mt-16 relative z-20 w-full mx-auto flex flex-col items-center transition-all duration-300 ${
-        isScanning ? 'max-w-2xl' : (validProduct ? 'max-w-5xl' : 'max-w-2xl')
+        !hasLoadedCache ? 'max-w-2xl' : (isScanning ? 'max-w-2xl' : (validProduct ? 'max-w-5xl' : 'max-w-2xl'))
       }`}>
         
-        {isScanning ? (
+        {!hasLoadedCache ? (
+          <div className="bg-white p-8 rounded-3xl shadow-xl border border-slate-100 flex flex-col items-center justify-center min-h-[300px] w-full max-w-md mt-8">
+            <Loader2 className="animate-spin text-indigo-600 mb-2" size={32} />
+            <span className="text-slate-500 font-medium text-sm">Cargando...</span>
+          </div>
+        ) : isScanning ? (
           <Scanner onScan={handleScan} />
         ) : (
           <div className="w-full flex flex-col items-center">
@@ -110,7 +147,12 @@ export default function Home() {
               <div className="w-full flex flex-col items-center gap-6">
                 
                 <button 
-                  onClick={() => setIsScanning(true)}
+                  onClick={() => {
+                    setIsScanning(true);
+                    localStorage.removeItem('baratoscan_query');
+                    localStorage.removeItem('baratoscan_data');
+                    localStorage.setItem('baratoscan_isScanning', 'true');
+                  }}
                   className="bg-white border-2 border-indigo-100 text-indigo-600 font-bold py-3 px-8 rounded-full shadow-sm hover:bg-indigo-50 hover:border-indigo-200 transition-all flex items-center gap-2 mb-2"
                 >
                   <Search size={18} />
@@ -166,7 +208,12 @@ export default function Home() {
                        No pudimos encontrar precios para <strong>{currentQuery}</strong> en ninguno de los supermercados.
                      </p>
                      <button 
-                        onClick={() => setIsScanning(true)}
+                        onClick={() => {
+                          setIsScanning(true);
+                          localStorage.removeItem('baratoscan_query');
+                          localStorage.removeItem('baratoscan_data');
+                          localStorage.setItem('baratoscan_isScanning', 'true');
+                        }}
                         className="bg-indigo-600 text-white font-bold py-4 px-8 rounded-2xl shadow-md hover:bg-indigo-700 w-full transition-all"
                       >
                         Intentar con otro

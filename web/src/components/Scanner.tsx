@@ -10,11 +10,12 @@ interface ScannerProps {
 }
 
 export default function Scanner({ onScan }: ScannerProps) {
-  const [mode, setMode] = useState<'camera' | 'ean' | 'text'>('camera');
+  const [mode, setMode] = useState<'camera' | 'ean' | 'text'>('ean');
   const [manualValue, setManualValue] = useState('');
+  const [isCameraActive, setIsCameraActive] = useState(false);
 
   useEffect(() => {
-    if (mode === 'camera') {
+    if (mode === 'camera' && isCameraActive) {
       const scanner = new Html5QrcodeScanner(
         'reader',
         { 
@@ -42,7 +43,7 @@ export default function Scanner({ onScan }: ScannerProps) {
         scanner.clear().catch(console.error);
       };
     }
-  }, [mode, onScan]);
+  }, [mode, isCameraActive, onScan]);
 
   const handleManualSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -54,6 +55,7 @@ export default function Scanner({ onScan }: ScannerProps) {
   const handleTabChange = (newMode: 'camera' | 'ean' | 'text') => {
     setMode(newMode);
     setManualValue(''); // Clear input when switching tabs
+    setIsCameraActive(false); // Reset camera state when changing tabs
   };
 
   return (
@@ -97,8 +99,26 @@ export default function Scanner({ onScan }: ScannerProps) {
             animate={{ opacity: 1, scale: 1 }}
             className="w-full h-full flex flex-col items-center justify-center"
           >
-            <div id="reader" className="w-full overflow-hidden rounded-2xl [&>div]:!border-none [&>div]:!shadow-none" />
-            <p className="text-slate-500 mt-4 text-center text-sm font-medium">Apunta la cámara al código de barras</p>
+            {!isCameraActive ? (
+              <button
+                type="button"
+                onClick={() => setIsCameraActive(true)}
+                className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-slate-200 hover:border-indigo-400 rounded-3xl w-full aspect-square group cursor-pointer transition-all hover:bg-indigo-50/50 gap-4"
+              >
+                <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center transition-all group-hover:scale-110 shadow-md">
+                  <Camera size={32} />
+                </div>
+                <span className="text-slate-800 font-extrabold text-lg">Activar Cámara</span>
+                <p className="text-slate-500 text-sm text-center font-medium max-w-[240px]">
+                  Haz clic para encender la cámara y escanear el código de barras
+                </p>
+              </button>
+            ) : (
+              <>
+                <div id="reader" className="w-full overflow-hidden rounded-2xl [&>div]:!border-none [&>div]:!shadow-none" />
+                <p className="text-slate-500 mt-4 text-center text-sm font-medium">Apunta la cámara al código de barras</p>
+              </>
+            )}
           </motion.div>
         ) : (
           <motion.div
