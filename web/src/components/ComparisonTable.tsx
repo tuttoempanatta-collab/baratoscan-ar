@@ -40,29 +40,30 @@ export default function ComparisonTable({ prices }: ComparisonTableProps) {
   };
 
   const getRankBadge = (rank: number) => {
+    const baseClass = "flex items-center justify-center rounded-full text-white font-black shadow-sm shrink-0 w-7 h-7 text-xs sm:w-8 sm:h-8 sm:text-sm lg:w-6 lg:h-6 lg:text-xs xl:w-8 xl:h-8 xl:text-sm";
     if (rank === 1) {
       return (
-        <span className="flex items-center justify-center w-6 h-6 rounded-full bg-amber-500 text-white font-black text-xs shadow-sm shrink-0 border border-amber-400">
+        <span className={`${baseClass} bg-amber-500 border border-amber-400`}>
           1
         </span>
       );
     }
     if (rank === 2) {
       return (
-        <span className="flex items-center justify-center w-6 h-6 rounded-full bg-slate-400 text-white font-black text-xs shadow-sm shrink-0 border border-slate-300">
+        <span className={`${baseClass} bg-slate-400 border border-slate-300`}>
           2
         </span>
       );
     }
     if (rank === 3) {
       return (
-        <span className="flex items-center justify-center w-6 h-6 rounded-full bg-amber-700 text-white font-black text-xs shadow-sm shrink-0 border border-amber-600">
+        <span className={`${baseClass} bg-amber-700 border border-amber-600`}>
           3
         </span>
       );
     }
     return (
-      <span className="flex items-center justify-center w-6 h-6 rounded-full bg-slate-100 text-slate-500 font-bold text-xs border border-slate-200 shrink-0">
+      <span className="flex items-center justify-center rounded-full text-slate-500 font-bold border border-slate-200 shrink-0 w-7 h-7 text-xs sm:w-8 sm:h-8 sm:text-sm lg:w-6 lg:h-6 lg:text-xs xl:w-8 xl:h-8 xl:text-sm bg-slate-100">
         {rank}
       </span>
     );
@@ -87,40 +88,40 @@ export default function ComparisonTable({ prices }: ComparisonTableProps) {
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: index * 0.05 }}
             key={record.cadena}
-            className={`flex items-center justify-between p-3 sm:p-4 rounded-2xl border transition-all gap-3 ${
+            className={`flex items-center justify-between p-4 sm:p-5 lg:p-3 xl:p-5 rounded-2xl border transition-all gap-3 ${
               isCheapest 
                 ? 'border-green-400 bg-green-50/70 shadow-sm transform scale-[1.01]' 
                 : 'border-slate-100 bg-white hover:border-slate-200 shadow-sm'
             }`}
           >
-            <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+            <div className="flex items-center gap-2.5 sm:gap-4 flex-1 min-w-0">
               {!isError && getRankBadge(itemRank)}
-              <div className={`w-10 h-10 shrink-0 rounded-xl flex items-center justify-center text-white font-bold text-xs shadow-inner ${getChainColor(record.cadena)}`}>
+              <div className={`w-12 h-12 lg:w-10 xl:w-12 shrink-0 rounded-xl flex items-center justify-center text-white font-bold text-sm lg:text-xs xl:text-sm shadow-inner ${getChainColor(record.cadena)}`}>
                 {record.cadena.substring(0, 3).toUpperCase()}
               </div>
               <div className="flex flex-col min-w-0">
-                <span className="font-bold text-slate-800 text-sm sm:text-base truncate leading-tight">{record.cadena}</span>
+                <span className="font-bold text-slate-800 text-base sm:text-lg lg:text-sm xl:text-lg truncate leading-tight">{record.cadena}</span>
                 {isCheapest && (
-                  <span className="text-[9px] sm:text-xs font-bold text-green-600 tracking-wide uppercase bg-green-200/50 px-2 py-0.5 rounded-full inline-block w-max mt-0.5">
+                  <span className="text-[10px] sm:text-xs lg:text-[9px] xl:text-xs font-bold text-green-600 tracking-wide uppercase bg-green-200/50 px-2 py-0.5 rounded-full inline-block w-max mt-0.5">
                     Más Barato
                   </span>
                 )}
               </div>
             </div>
 
-            <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+            <div className="flex items-center gap-3 sm:gap-5 shrink-0">
               {isError ? (
                 <div className="flex items-center gap-1 sm:gap-2 text-slate-400">
-                  <AlertCircle size={14} className="sm:w-4 sm:h-4" />
-                  <span className="text-[10px] sm:text-xs font-medium">No disponible</span>
+                  <AlertCircle className="w-4 h-4 lg:w-3.5 lg:h-3.5" />
+                  <span className="text-xs sm:text-sm lg:text-xs font-medium">No disponible</span>
                 </div>
               ) : (
                 <div className="text-right">
-                  <div className={`text-base sm:text-xl font-black whitespace-nowrap ${isCheapest ? 'text-green-600' : 'text-slate-800'}`}>
+                  <div className={`text-lg sm:text-2xl lg:text-lg xl:text-2xl font-black whitespace-nowrap ${isCheapest ? 'text-green-600' : 'text-slate-800'}`}>
                     ${record.precio?.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
                   </div>
                   {record.precio_oferta && (
-                    <div className="text-[9px] sm:text-xs text-red-500 font-bold bg-red-50 px-1.5 py-0.5 rounded mt-0.5">
+                    <div className="text-[10px] sm:text-xs lg:text-[9px] xl:text-xs text-red-500 font-bold bg-red-50 px-1.5 py-0.5 rounded mt-0.5">
                       Oferta: ${record.precio_oferta.toLocaleString('es-AR')}
                     </div>
                   )}
@@ -132,9 +133,9 @@ export default function ComparisonTable({ prices }: ComparisonTableProps) {
                   href={record.url_producto}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-8 h-8 sm:w-9 sm:h-9 shrink-0 rounded-full bg-slate-50 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-200 flex items-center justify-center text-slate-400 hover:text-indigo-600 transition-colors"
+                  className="w-10 h-10 lg:w-8 lg:h-8 xl:w-10 xl:h-10 shrink-0 rounded-full bg-slate-50 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-200 flex items-center justify-center text-slate-400 hover:text-indigo-600 transition-colors"
                 >
-                  <ShoppingCart size={15} />
+                  <ShoppingCart className="w-5 h-5 lg:w-4 lg:h-4 xl:w-5 xl:h-5" />
                 </a>
               )}
             </div>
