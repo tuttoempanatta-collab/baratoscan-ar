@@ -2,7 +2,6 @@
 
 import React, { useState } from 'react';
 import Scanner from '@/components/Scanner';
-import ProductCard from '@/components/ProductCard';
 import ComparisonTable from '@/components/ComparisonTable';
 import { Search, ScanBarcode, Loader2 } from 'lucide-react';
 import Link from 'next/link';
@@ -73,7 +72,9 @@ export default function Home() {
       </header>
 
       {/* Main Content Area */}
-      <main className="px-4 -mt-16 relative z-20 max-w-4xl mx-auto flex flex-col items-center">
+      <main className={`px-4 -mt-16 relative z-20 w-full mx-auto flex flex-col items-center transition-all duration-300 ${
+        isScanning ? 'max-w-2xl' : (validProduct ? 'max-w-5xl' : 'max-w-2xl')
+      }`}>
         
         {isScanning ? (
           <Scanner onScan={handleScan} />
@@ -103,14 +104,44 @@ export default function Home() {
                 </button>
 
                 {validProduct ? (
-                  <>
-                    <ProductCard 
-                      nombre={validProduct.nombre || ''} 
-                      query={currentQuery} 
-                      imagen_url={validProduct.imagen_url || null} 
-                    />
-                    <ComparisonTable prices={scrapedData as any} />
-                  </>
+                  <div className="w-full grid grid-cols-1 lg:grid-cols-12 gap-8 items-start mt-2">
+                    {/* Left Column: Large Image Card */}
+                    <div className="lg:col-span-5 w-full flex flex-col gap-4">
+                      <div className="bg-white p-8 rounded-3xl shadow-lg border border-slate-100 flex items-center justify-center aspect-square w-full relative overflow-hidden group">
+                        {validProduct.imagen_url ? (
+                          /* eslint-disable-next-line @next/next/no-img-element */
+                          <img 
+                            src={validProduct.imagen_url} 
+                            alt={validProduct.nombre || 'Producto'} 
+                            className="max-w-full max-h-full object-contain transition-transform duration-300 group-hover:scale-105" 
+                          />
+                        ) : (
+                          <div className="w-24 h-24 bg-slate-100 rounded-full flex items-center justify-center">
+                            <span className="text-slate-400 font-bold text-sm">Sin Imagen</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Right Column: Title, EAN & Rankings */}
+                    <div className="lg:col-span-7 w-full flex flex-col gap-6">
+                      <div className="bg-white p-6 sm:p-8 rounded-3xl shadow-lg border border-slate-100 text-left">
+                        <div className="inline-block bg-slate-100 px-3 py-1 rounded-full text-slate-500 font-mono text-xs tracking-wider font-semibold border border-slate-200 mb-3">
+                          {/^\d+$/.test(currentQuery) ? 'EAN: ' : 'Búsqueda: '}{currentQuery}
+                        </div>
+                        <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-800 leading-snug mb-6">
+                          {validProduct.nombre}
+                        </h2>
+                        
+                        <div className="border-t border-slate-100 pt-6">
+                          <h3 className="text-sm font-bold text-slate-400 tracking-wider uppercase mb-4">
+                            Ranking de Precios
+                          </h3>
+                          <ComparisonTable prices={scrapedData as any} />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 ) : (
                    <div className="bg-white p-8 rounded-3xl shadow-xl border border-slate-100 flex flex-col items-center text-center max-w-md w-full">
                      <div className="w-20 h-20 bg-red-50 text-red-500 rounded-full flex items-center justify-center mb-4">
