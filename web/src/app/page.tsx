@@ -55,17 +55,31 @@ export default function Home() {
     <div className="min-h-screen bg-slate-50 font-sans selection:bg-indigo-100 selection:text-indigo-900 pb-20">
       
       {/* Header */}
-      <header className="bg-indigo-600 text-white pt-12 pb-24 px-6 rounded-b-[3rem] shadow-lg relative overflow-hidden">
+      <header className={`bg-indigo-600 text-white rounded-b-[3rem] shadow-lg relative overflow-hidden transition-all duration-300 ${
+        isScanning 
+          ? 'pt-12 pb-24 px-6' 
+          : 'pt-6 pb-16 md:pb-14 px-6'
+      }`}>
         <div className="absolute top-0 left-0 w-full h-full bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
         <div className="max-w-2xl mx-auto relative z-10 flex flex-col items-center text-center">
-          <div className="bg-white/20 p-4 rounded-2xl backdrop-blur-sm mb-4 inline-block">
-            <ScanBarcode size={40} className="text-white drop-shadow-md" />
+          <div className={`bg-white/20 rounded-2xl backdrop-blur-sm transition-all duration-300 inline-block ${
+            isScanning ? 'p-4 mb-4' : 'p-2 mb-2 md:p-1.5 md:mb-1'
+          }`}>
+            <ScanBarcode size={isScanning ? 40 : 24} className="text-white drop-shadow-md transition-all" />
           </div>
-          <h1 className="text-4xl font-black tracking-tight mb-2 drop-shadow-sm">BaratoScan AR</h1>
-          <p className="text-indigo-100 font-medium text-lg max-w-md mb-6">
-            Escaneá el código de barras y encontrá el supermercado más barato al instante.
-          </p>
-          <Link href="/comparativa" className="bg-white/20 hover:bg-white/30 transition-all text-white px-6 py-2 rounded-full backdrop-blur-md border border-white/30 font-medium flex items-center gap-2">
+          <h1 className={`font-black tracking-tight drop-shadow-sm transition-all duration-300 ${
+            isScanning ? 'text-4xl mb-2' : 'text-2xl md:text-3xl mb-1'
+          }`}>
+            BaratoScan AR
+          </h1>
+          {isScanning && (
+            <p className="text-indigo-100 font-medium text-lg max-w-md mb-6 transition-all duration-300">
+              Escaneá el código de barras y encontrá el supermercado más barato al instante.
+            </p>
+          )}
+          <Link href="/comparativa" className={`bg-white/20 hover:bg-white/30 transition-all text-white rounded-full backdrop-blur-md border border-white/30 font-medium flex items-center gap-2 ${
+            isScanning ? 'px-6 py-2' : 'px-4 py-1 text-xs md:text-sm'
+          }`}>
             Ver Comparativa de CSVs
           </Link>
         </div>
