@@ -127,7 +127,9 @@ function getTipoMarca(marca: string, tipo_marca: string, commerceName: string): 
     val === 'jumbo' ||
     val === 'changomas' ||
     val === 'great value' ||
-    val === 'equate'
+    val === 'equate' ||
+    val === 'yaguane' ||
+    val === 'yaguané'
   ) {
     return 'Propia';
   }
@@ -2157,6 +2159,7 @@ export default function ComparativaPage() {
                                   if (c.includes('vea')) return 'bg-green-100 text-green-700 border-green-200';
                                   if (c.includes('disco')) return 'bg-red-50 text-red-800 border-red-200';
                                   if (c.includes('chango')) return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+                                  if (c.includes('yaguane') || c.includes('yaguané')) return 'bg-indigo-100 text-indigo-800 border-indigo-200';
                                   return 'bg-slate-100 text-slate-700 border-slate-200';
                                 };
 

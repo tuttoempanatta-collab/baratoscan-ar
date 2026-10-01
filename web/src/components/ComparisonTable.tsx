@@ -29,12 +29,16 @@ export default function ComparisonTable({ prices }: ComparisonTableProps) {
   const getChainColor = (chain: string) => {
     const colors: Record<string, string> = {
       'Día': 'bg-red-600',
+      'Dia': 'bg-red-600',
       'Coto': 'bg-blue-600',
       'Disco': 'bg-red-700',
       'ChangoMás': 'bg-blue-500',
+      'Changomás': 'bg-blue-500',
       'Carrefour': 'bg-blue-800',
       'Vea': 'bg-green-600',
-      'Diarco': 'bg-orange-500'
+      'Diarco': 'bg-orange-500',
+      'Yaguané': 'bg-[#1d2c5e]',
+      'Yaguane': 'bg-[#1d2c5e]'
     };
     return colors[chain] || 'bg-slate-600';
   };
@@ -113,7 +117,11 @@ export default function ComparisonTable({ prices }: ComparisonTableProps) {
               {isError ? (
                 <div className="flex items-center gap-1 sm:gap-2 text-slate-400">
                   <AlertCircle className="w-4 h-4 lg:w-3.5 lg:h-3.5" />
-                  <span className="text-xs sm:text-sm lg:text-xs font-medium">No disponible</span>
+                  <span className="text-xs sm:text-sm lg:text-xs font-medium">
+                    {record.cadena.toLowerCase().includes('yaguan') && (record.error?.includes('código de barras') || record.error?.includes('descripción'))
+                      ? 'Solo por descripción'
+                      : 'No disponible'}
+                  </span>
                 </div>
               ) : (
                 <div className="text-right">

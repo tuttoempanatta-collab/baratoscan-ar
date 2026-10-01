@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Scanner from '@/components/Scanner';
 import ComparisonTable from '@/components/ComparisonTable';
-import { Search, ScanBarcode, Loader2 } from 'lucide-react';
+import { Search, ScanBarcode, Loader2, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 
 interface ScrapedProduct {
@@ -32,8 +32,21 @@ export default function Home() {
 
     if (cachedQuery && cachedData) {
       try {
+        const parsed = JSON.parse(cachedData);
+        if (Array.isArray(parsed)) {
+          const hasYaguane = parsed.some((p: any) => p.cadena?.toLowerCase().includes('yaguan'));
+          if (!hasYaguane && /^\d+$/.test(cachedQuery)) {
+            parsed.push({
+              ean: cachedQuery,
+              cadena: 'Yaguané',
+              timestamp: new Date().toISOString(),
+              precio: null,
+              error: 'Yaguané no admite búsqueda por código de barras'
+            });
+          }
+        }
         setCurrentQuery(cachedQuery);
-        setScrapedData(JSON.parse(cachedData));
+        setScrapedData(parsed);
         if (cachedIsScanning !== null) {
           setIsScanning(cachedIsScanning === 'true');
         } else {
@@ -137,7 +150,7 @@ export default function Home() {
                 <Loader2 className="animate-spin text-indigo-600 mb-4" size={48} />
                 <h2 className="text-xl font-bold text-slate-800">Buscando precios...</h2>
                 <p className="text-slate-500 text-center mt-2 text-sm font-medium">
-                  Estamos consultando en Día, Coto, Carrefour y más supermercados. Esto puede demorar unos segundos.
+                  Estamos consultando en Día, Coto, Carrefour, Yaguané y más supermercados. Esto puede demorar unos segundos.
                 </p>
                 <div className="mt-6 font-mono font-bold bg-slate-100 px-4 py-2 rounded-full text-slate-600">
                   Búsqueda: {currentQuery}
@@ -185,9 +198,35 @@ export default function Home() {
                         <div className="inline-block bg-slate-100 px-3 py-1 rounded-full text-slate-500 font-mono text-xs tracking-wider font-semibold border border-slate-200 mb-3">
                           {/^\d+$/.test(currentQuery) ? 'EAN: ' : 'Búsqueda: '}{currentQuery}
                         </div>
-                        <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-800 leading-snug mb-6">
+                        <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-800 leading-snug mb-4">
                           {validProduct.nombre}
                         </h2>
+
+                        {/* Botón de transición EAN -> Descripción para sumar a Yaguané */}
+                        {/^\d+$/.test(currentQuery) && validProduct?.nombre && (
+                          <div className="bg-indigo-50/90 border border-indigo-100 rounded-2xl p-4 mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm">
+                            <div className="flex items-center gap-3">
+                              <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+                                <Sparkles size={18} />
+                              </div>
+                              <div>
+                                <h4 className="font-bold text-sm text-slate-800 leading-tight">
+                                  ¿Querés comparar también en Yaguané?
+                                </h4>
+                                <p className="text-slate-500 text-xs mt-0.5">
+                                  Yaguané busca por nombre. Relanzá la búsqueda por descripción con un clic.
+                                </p>
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => handleScan(validProduct.nombre || '')}
+                              className="bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold text-xs sm:text-sm py-2 px-4 rounded-xl shadow-md transition-all flex items-center gap-1.5 shrink-0 cursor-pointer w-full sm:w-auto justify-center"
+                            >
+                              <Search size={14} />
+                              Buscar por descripción
+                            </button>
+                          </div>
+                        )}
                         
                         <div className="border-t border-slate-100 pt-6">
                           <h3 className="text-sm font-bold text-slate-400 tracking-wider uppercase mb-4">

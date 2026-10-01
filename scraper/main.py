@@ -12,6 +12,7 @@ from chains.changomas import ChangoMasScraper
 from chains.carrefour import CarrefourScraper
 from chains.vea import VeaScraper
 from chains.diarco import DiarcoScraper
+from chains.yaguane import YaguaneScraper
 
 app = FastAPI(title="BaratoScan Scraper API")
 
@@ -34,7 +35,8 @@ async def scrape_product(ean: str):
         DiscoScraper(),
         ChangoMasScraper(),
         CarrefourScraper(),
-        VeaScraper()
+        VeaScraper(),
+        YaguaneScraper()
         # DiarcoScraper() # Diarco ya no tiene e-commerce online
     ]
     

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { scrapeEAN } from '@/lib/scraperClient';
+import { scrapeYaguane } from '@/lib/yaguaneClient';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -28,22 +29,72 @@ export async function GET(request: Request) {
     }
 
     if (existingData && existingData.length > 0) {
-      // If we have recent data from at least one chain (in a real app, you might want to ensure we have data for ALL chains, but for MVP this is fine, or we can just fetch all)
+      // Check if Yaguané is in existingData
+      const hasYaguane = existingData.some((item: { cadena: string }) => item.cadena?.toLowerCase().includes('yaguan'));
+      if (!hasYaguane) {
+        try {
+          const yaguaneItem = await scrapeYaguane(rawQuery);
+          if (yaguaneItem) {
+            existingData.push(yaguaneItem);
+            if (!yaguaneItem.error && yaguaneItem.precio !== null) {
+              const toInsert = {
+                ean: yaguaneItem.ean,
+                cadena: yaguaneItem.cadena,
+                nombre: yaguaneItem.nombre,
+                precio: yaguaneItem.precio,
+                precio_oferta: yaguaneItem.precio_oferta || null,
+                imagen_url: yaguaneItem.imagen_url || null,
+                url_producto: yaguaneItem.url_producto || null,
+                timestamp: yaguaneItem.timestamp
+              };
+              await supabase.from('prices').insert([toInsert]);
+            }
+          }
+        } catch (e) {
+          console.error('Error fetching Yaguane for cached query:', e);
+        }
+      }
       console.log(`Returning ${existingData.length} existing records for Query: ${query}`);
       return NextResponse.json(existingData);
     }
 
     // 2. If no recent data, call the Python Scraper API
     console.log(`No recent data found. Scraping live for Query: ${query}`);
-    const scrapedData = await scrapeEAN(query);
+    const scrapedData = await scrapeEAN(rawQuery);
 
-    if (!scrapedData) {
+    const finalResults = Array.isArray(scrapedData) ? [...scrapedData] : [];
+
+    // Ensure Yaguané is included
+    const hasYaguane = finalResults.some((item: { cadena: string }) => item.cadena?.toLowerCase().includes('yaguan'));
+    if (!hasYaguane) {
+      try {
+        const yaguaneItem = await scrapeYaguane(rawQuery);
+        if (yaguaneItem) {
+          finalResults.push(yaguaneItem);
+        }
+      } catch (e) {
+        console.error('Error fetching Yaguane in live scrape:', e);
+      }
+    }
+
+    if (finalResults.length === 0) {
       return NextResponse.json({ error: 'Failed to scrape data' }, { status: 500 });
     }
 
     // 3. Save new data to Supabase
     // We only insert valid records (where there's no error from the scraper)
-    const validRecords = scrapedData.filter((item: Record<string, unknown>) => !item.error && item.precio !== null);
+    const validRecords = finalResults
+      .filter((item: any) => !item.error && item.precio !== null)
+      .map((item: any) => ({
+        ean: item.ean,
+        cadena: item.cadena,
+        nombre: item.nombre,
+        precio: item.precio,
+        precio_oferta: item.precio_oferta || null,
+        imagen_url: item.imagen_url || null,
+        url_producto: item.url_producto || null,
+        timestamp: item.timestamp || new Date().toISOString()
+      }));
     
     if (validRecords.length > 0) {
       const { error: insertError } = await supabase
@@ -56,10 +107,11 @@ export async function GET(request: Request) {
     }
 
     // Return the full result (including ones with errors so frontend knows which failed)
-    return NextResponse.json(scrapedData);
+    return NextResponse.json(finalResults);
 
   } catch (err) {
     console.error('API Error:', err);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
+
