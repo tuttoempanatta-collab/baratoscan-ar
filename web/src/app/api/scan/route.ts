@@ -28,10 +28,24 @@ export async function GET(request: Request) {
       console.error('Supabase query error:', dbError);
     }
 
+    const isEan = /^\d+$/.test(rawQuery.trim()) && rawQuery.trim().length >= 8;
+
     if (existingData && existingData.length > 0) {
-      // Check if Yaguané is in existingData
-      const hasYaguane = existingData.some((item: { cadena: string }) => item.cadena?.toLowerCase().includes('yaguan'));
-      if (!hasYaguane) {
+      const yaguaneIndex = existingData.findIndex((item: { cadena: string }) => item.cadena?.toLowerCase().includes('yaguan'));
+      if (isEan) {
+        const yaguaneEanItem = {
+          ean: rawQuery.trim(),
+          cadena: 'Yaguané',
+          timestamp: new Date().toISOString(),
+          precio: null,
+          error: 'Yaguané no admite búsqueda por código de barras'
+        };
+        if (yaguaneIndex >= 0) {
+          existingData[yaguaneIndex] = yaguaneEanItem;
+        } else {
+          existingData.push(yaguaneEanItem);
+        }
+      } else if (yaguaneIndex < 0) {
         try {
           const yaguaneItem = await scrapeYaguane(rawQuery);
           if (yaguaneItem) {
@@ -64,13 +78,30 @@ export async function GET(request: Request) {
 
     const finalResults = Array.isArray(scrapedData) ? [...scrapedData] : [];
 
-    // Ensure Yaguané is included
-    const hasYaguane = finalResults.some((item: { cadena: string }) => item.cadena?.toLowerCase().includes('yaguan'));
-    if (!hasYaguane) {
+    // Ensure Yaguané is properly handled
+    const yaguaneIndex = finalResults.findIndex((item: { cadena: string }) => item.cadena?.toLowerCase().includes('yaguan'));
+    if (isEan) {
+      const yaguaneEanItem = {
+        ean: rawQuery.trim(),
+        cadena: 'Yaguané',
+        timestamp: new Date().toISOString(),
+        precio: null,
+        error: 'Yaguané no admite búsqueda por código de barras'
+      };
+      if (yaguaneIndex >= 0) {
+        finalResults[yaguaneIndex] = yaguaneEanItem;
+      } else {
+        finalResults.push(yaguaneEanItem);
+      }
+    } else if (yaguaneIndex < 0 || finalResults[yaguaneIndex].precio === null) {
       try {
         const yaguaneItem = await scrapeYaguane(rawQuery);
         if (yaguaneItem) {
-          finalResults.push(yaguaneItem);
+          if (yaguaneIndex >= 0) {
+            finalResults[yaguaneIndex] = yaguaneItem;
+          } else {
+            finalResults.push(yaguaneItem);
+          }
         }
       } catch (e) {
         console.error('Error fetching Yaguane in live scrape:', e);
