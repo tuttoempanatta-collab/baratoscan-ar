@@ -134,7 +134,9 @@ class YaguaneScraper(BaseScraper):
             if raw_path:
                 imagen_url = raw_path.replace("\\", "/")
 
-        url_producto = f"{self.base_url}/#/"
+        import urllib.parse
+        filter_param = urllib.parse.quote(nombre or query_clean)
+        url_producto = f"{self.base_url}/#/?filter={filter_param}"
 
         return {
             "nombre": nombre,

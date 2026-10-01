@@ -1,9 +1,10 @@
-import React from 'react';
-import { motion } from 'framer-motion';
-import { ShoppingCart, AlertCircle } from 'lucide-react';
+import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ShoppingCart, AlertCircle, Check, Copy } from 'lucide-react';
 
 interface PriceRecord {
   cadena: string;
+  nombre?: string | null;
   precio: number | null;
   precio_oferta: number | null;
   url_producto: string | null;
@@ -13,9 +14,12 @@ interface PriceRecord {
 
 interface ComparisonTableProps {
   prices: PriceRecord[];
+  query?: string;
 }
 
-export default function ComparisonTable({ prices }: ComparisonTableProps) {
+export default function ComparisonTable({ prices, query }: ComparisonTableProps) {
+  const [copiedToast, setCopiedToast] = useState<{ show: boolean; text: string } | null>(null);
+
   // Sort by price (cheapest first), pushing errors/nulls to the bottom
   const sortedPrices = [...prices].sort((a, b) => {
     if (a.precio === null && b.precio === null) return 0;
@@ -141,7 +145,23 @@ export default function ComparisonTable({ prices }: ComparisonTableProps) {
                   href={record.url_producto}
                   target="_blank"
                   rel="noopener noreferrer"
+                  onClick={() => {
+                    if (record.cadena.toLowerCase().includes('yaguan')) {
+                      const textToCopy = record.nombre || query || '';
+                      if (textToCopy && typeof navigator !== 'undefined' && navigator.clipboard) {
+                        navigator.clipboard.writeText(textToCopy).catch(() => {});
+                      }
+                      setCopiedToast({
+                        show: true,
+                        text: textToCopy
+                      });
+                      setTimeout(() => {
+                        setCopiedToast(null);
+                      }, 5000);
+                    }
+                  }}
                   className="w-10 h-10 lg:w-8 lg:h-8 xl:w-10 xl:h-10 shrink-0 rounded-full bg-slate-50 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-200 flex items-center justify-center text-slate-400 hover:text-indigo-600 transition-colors"
+                  title={record.cadena.toLowerCase().includes('yaguan') ? "Abrir Yaguané y copiar nombre" : "Ver en la tienda"}
                 >
                   <ShoppingCart className="w-5 h-5 lg:w-4 lg:h-4 xl:w-5 xl:h-5" />
                 </a>
@@ -150,6 +170,30 @@ export default function ComparisonTable({ prices }: ComparisonTableProps) {
           </motion.div>
         );
       })}
+
+      {/* Toast de asistencia para Yaguané */}
+      <AnimatePresence>
+        {copiedToast && (
+          <motion.div
+            initial={{ opacity: 0, y: 50, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.95 }}
+            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-slate-900/95 backdrop-blur-md text-white px-5 py-4 rounded-2xl shadow-2xl border border-slate-700/60 flex items-center gap-3.5 max-w-[92vw] sm:max-w-lg"
+          >
+            <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+              <Check size={20} />
+            </div>
+            <div className="flex flex-col text-left">
+              <span className="font-bold text-white text-sm leading-tight flex items-center gap-1.5">
+                ¡Nombre copiado al portapapeles!
+              </span>
+              <span className="text-slate-300 text-xs mt-1 leading-snug">
+                En la web de Yaguané tocá la barra de búsqueda y seleccioná <strong>Pegar</strong>: &ldquo;{copiedToast.text}&rdquo;
+              </span>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

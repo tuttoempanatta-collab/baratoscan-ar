@@ -232,7 +232,7 @@ export default function Home() {
                           <h3 className="text-sm font-bold text-slate-400 tracking-wider uppercase mb-4">
                             Ranking de Precios
                           </h3>
-                          <ComparisonTable prices={scrapedData as any} />
+                          <ComparisonTable prices={scrapedData as any} query={validProduct?.nombre || currentQuery} />
                         </div>
                       </div>
                     </div>

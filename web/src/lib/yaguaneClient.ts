@@ -118,6 +118,7 @@ export async function scrapeYaguane(query: string): Promise<ScrapedProduct | nul
       }
     }
 
+    const productFilter = best.nombre || cleanQuery;
     return {
       ean: cleanQuery,
       cadena: 'Yaguané',
@@ -125,7 +126,7 @@ export async function scrapeYaguane(query: string): Promise<ScrapedProduct | nul
       precio: finalPrice,
       precio_oferta: finalOffer,
       imagen_url: imagenUrl,
-      url_producto: 'https://yaguaneonline.com.ar/#/',
+      url_producto: `https://yaguaneonline.com.ar/#/?filter=${encodeURIComponent(productFilter)}`,
       timestamp: new Date().toISOString(),
       error: finalPrice ? null : 'Precio no disponible'
     };
